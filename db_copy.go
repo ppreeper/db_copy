@@ -44,6 +44,7 @@ var tbl bool
 var lnk bool
 var all bool
 var tableName string
+var configFile string
 
 var source string
 var dest string
@@ -52,6 +53,7 @@ func init() {
 	// Flags
 	flag.StringVar(&source, "source", "", "source database")
 	flag.StringVar(&dest, "dest", "", "destination database")
+	flag.StringVar(&configFile, "config.file", "", "config file location")
 
 	flag.StringVar(&tableName, "t", "", "specific table")
 	flag.BoolVar(&all, "a", false, "all tables")
