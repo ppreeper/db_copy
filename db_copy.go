@@ -130,7 +130,7 @@ func checkErr(err error) {
 }
 
 func getDB(name string, db *dbc.Dbase) (err error) {
-	content, err := ioutil.ReadFile("config.json")
+	content, err := ioutil.ReadFile(&configFile)
 	checkErr(err)
 	var conf Dbases
 	err = json.Unmarshal(content, &conf)
