@@ -7,8 +7,8 @@ import (
 	"io/ioutil"
 	"strings"
 
-	dbc "git.preeper.org/peterp/goetl/sqlx"
 	"github.com/kr/pretty"
+	dbc "github.com/ppreeper/db_copy/sqlx"
 	// _ "github.com/denisenkom/go-mssqldb"
 	// _ "github.com/fajran/go-monetdb" //Monet
 	// _ "github.com/jmoiron/sqlx"
