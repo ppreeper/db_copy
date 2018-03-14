@@ -53,7 +53,7 @@ func init() {
 	// Flags
 	flag.StringVar(&source, "source", "", "source database")
 	flag.StringVar(&dest, "dest", "", "destination database")
-	flag.StringVar(&configFile, "config.file", "", "config file location")
+	flag.StringVar(&configFile, "config.file", "config.json", "config file location")
 
 	flag.StringVar(&tableName, "t", "", "specific table")
 	flag.BoolVar(&all, "a", false, "all tables")
@@ -64,7 +64,12 @@ func init() {
 }
 
 func main() {
-	pretty.Println("source:", source, "dest:", dest, "tableName:", strings.ToUpper(tableName), "tbl:", tbl, "lnk:", lnk)
+	pretty.Printf("source: %s\n", source)
+	pretty.Printf("dest: %s\n", dest)
+	pretty.Printf("tableName: %s\n", strings.ToUpper(tableName))
+	pretty.Printf("all: %s\n", all)
+	pretty.Printf("tbl: %s\n", tbl)
+	pretty.Printf("lnk: %s\n", lnk)
 	if source == "" {
 		fmt.Println("No source specified")
 		return
@@ -88,24 +93,21 @@ func main() {
 	checkErr(err)
 	defer ddb.Close()
 
-	if tableName == "" {
-		fmt.Println("No table specified")
-		return
-	} else {
-		scols, err := sdb.GetColumnDetail(dst, src, strings.ToUpper(tableName))
-		checkErr(err)
-		pcols, err := sdb.GetPKey(dst, src, strings.ToUpper(tableName))
-		checkErr(err)
-		if tbl == false && lnk == false {
-			fmt.Println("Table generation not specified")
-			return
+	if all {
+		if tableName != "" {
+			fmt.Println("table and all cannot be selected at same time")
 		} else {
-			if tbl {
-				ddb.GenTable(dst, strings.ToUpper(tableName), scols, pcols)
+			stables, err := sdb.GetTables(src)
+			checkErr(err)
+			for _, s := range stables {
+				getTable(sdb, ddb, s.TableName)
 			}
-			if lnk {
-				ddb.GenLink(dst, src, strings.ToUpper(tableName), scols, pcols)
-			}
+		}
+	} else {
+		if tableName != "" {
+			getTable(sdb, ddb, tableName)
+		} else {
+			fmt.Println("No table specified")
 		}
 	}
 
@@ -153,4 +155,21 @@ func genURI(db *dbc.Dbase) (uri string) {
 		uri = "server=" + db.Host + ";user id=" + db.Username + ";password=" + db.Password + ";database=" + db.Database + ";encrypt=disable;connection timeout=7200;keepAlive=30"
 	}
 	return uri
+}
+
+func getTable(sdb *dbc.Database, ddb *dbc.Database, table string) {
+	scols, err := sdb.GetColumnDetail(dst, src, strings.ToUpper(table))
+	checkErr(err)
+	pcols, err := sdb.GetPKey(dst, src, strings.ToUpper(table))
+	checkErr(err)
+	if tbl == false && lnk == false {
+		fmt.Println("Table generation not specified")
+	} else {
+		if tbl {
+			ddb.GenTable(dst, strings.ToUpper(table), scols, pcols)
+		}
+		if lnk {
+			ddb.GenLink(dst, src, strings.ToUpper(table), scols, pcols)
+		}
+	}
 }
