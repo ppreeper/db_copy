@@ -85,6 +85,15 @@ type Columns struct {
 	Column string `db:"CL"`
 }
 
+//ExecProcedure executes stored procedure
+func (db *Database) ExecProcedure(q string) {
+	fmt.Println(q)
+	_, err := db.Exec(q)
+	if err != nil {
+		panic(err)
+	}
+}
+
 //GetColumnDetail func
 func (db *Database) GetColumnDetail(d Dbase, s Dbase, t string) ([]Columns, error) {
 	q := ""
@@ -255,11 +264,11 @@ func (db *Database) GetPKey(d Dbase, s Dbase, t string) ([]PKey, error) {
 }
 
 //GenTable generate table craeation
-func (db *Database) GenTable(d Dbase, t string, cols []Columns, pkey []PKey) {
+func (db *Database) GenTable(d Dbase, t string, cols []Columns, pkey []PKey) string {
 	q := ""
 	if d.Driver == "postgres" {
-		q += "-- DROP TABLE \"" + d.Schema + "\".\"" + t + "\"" + ";\n"
-		q += "CREATE TABLE \"" + d.Schema + "\".\"" + t + "\" (" + "\n"
+		q += "DROP TABLE IF EXISTS \"" + d.Schema + "\".\"" + t + "\"" + " CASCADE;\n"
+		q += "CREATE TABLE IF NOT EXISTS \"" + d.Schema + "\".\"" + t + "\" (" + "\n"
 		clen := len(cols)
 		plen := len(pkey)
 		for k, c := range cols {
@@ -287,15 +296,15 @@ func (db *Database) GenTable(d Dbase, t string, cols []Columns, pkey []PKey) {
 		q += "CREATE TABLE " + d.Schema + "." + t + "(" + "\n"
 		q += ")" + "\n"
 	}
-	fmt.Println(q)
+	return q
 }
 
 //GenLink generate table craeation
-func (db *Database) GenLink(d Dbase, s Dbase, t string, cols []Columns, pkey []PKey) {
+func (db *Database) GenLink(d Dbase, s Dbase, t string, cols []Columns, pkey []PKey) string {
 	q := ""
 	if d.Driver == "postgres" {
-		q += "-- DROP FOREIGN TABLE \"" + d.Schema + "\".\"" + t + "TEMP\";\n"
-		q += "CREATE FOREIGN TABLE \"" + d.Schema + "\".\"" + t + "TEMP\" (" + "\n"
+		q += "DROP FOREIGN TABLE IF EXISTS \"" + d.Schema + "\".\"" + t + "TEMP\" CASCADE;\n"
+		q += "CREATE FOREIGN TABLE IF NOT EXISTS \"" + d.Schema + "\".\"" + t + "TEMP\" (" + "\n"
 		clen := len(cols)
 		for k, c := range cols {
 			if k == clen-1 {
@@ -306,12 +315,30 @@ func (db *Database) GenLink(d Dbase, s Dbase, t string, cols []Columns, pkey []P
 		}
 		q += ")"
 		q += " SERVER " + s.Name + " OPTIONS (table_name '" + s.Schema + "." + t + "'"
-		q += ", row_estimate_method 'showplan_all')" + ";\n"
+		q += ", row_estimate_method 'showplan_all'"
+		q += ", match_column_names '0'"
+		q += ")" + ";\n"
 	} else if d.Driver == "mssql" {
 		q += "CREATE TABLE " + d.Schema + "." + t + "(" + "\n"
 		q += ")" + "\n"
 	}
-	fmt.Println(q)
+	return q
+}
+
+//GenUpdate generate update procedure
+func (db *Database) GenUpdate(d Dbase, s Dbase, t string, cols []Columns, pkey []PKey) string {
+	q := ""
+	if d.Driver == "postgres" {
+		q += "DROP FUNCTION IF EXISTS \"" + d.Schema + "\".\"UPD_" + t + "\"();\n"
+		q += "CREATE OR REPLACE FUNCTION \"" + d.Schema + "\".\"UPD_" + t + "\"()" + "\n"
+		q += "RETURNS VOID AS $$\n"
+		q += "BEGIN\n"
+		q += "TRUNCATE TABLE \"" + d.Schema + "\".\"" + t + "\";\n"
+		q += "INSERT INTO \"" + d.Schema + "\".\"" + t + "\" SELECT * FROM \"" + d.Schema + "\".\"" + t + "TEMP\"" + ";\n"
+		q += "END;\n"
+		q += "$$ LANGUAGE PLPGSQL;"
+	}
+	return q
 }
 
 //

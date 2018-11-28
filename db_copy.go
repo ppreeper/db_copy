@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"github.com/kr/pretty"
 	dbc "github.com/ppreeper/db_copy/sqlx"
 	// _ "github.com/denisenkom/go-mssqldb"
 	// _ "github.com/fajran/go-monetdb" //Monet
@@ -42,6 +41,8 @@ var dst dbc.Dbase
 
 var tbl bool
 var lnk bool
+var dbg bool
+var upd bool
 var all bool
 var tableName string
 var configFile string
@@ -49,7 +50,7 @@ var configFile string
 var source string
 var dest string
 
-func init() {
+func main() {
 	// Flags
 	flag.StringVar(&source, "source", "", "source database")
 	flag.StringVar(&dest, "dest", "", "destination database")
@@ -59,17 +60,16 @@ func init() {
 	flag.BoolVar(&all, "a", false, "all tables")
 	flag.BoolVar(&tbl, "g", false, "gen table sql")
 	flag.BoolVar(&lnk, "l", false, "gen table link sql")
+	flag.BoolVar(&upd, "u", false, "gen update procedure")
+	flag.BoolVar(&dbg, "n", false, "list tables no exec")
 
 	flag.Parse()
-}
-
-func main() {
-	pretty.Printf("source: %s\n", source)
-	pretty.Printf("dest: %s\n", dest)
-	pretty.Printf("tableName: %s\n", strings.ToUpper(tableName))
-	pretty.Printf("all: %s\n", all)
-	pretty.Printf("tbl: %s\n", tbl)
-	pretty.Printf("lnk: %s\n", lnk)
+	// pretty.Printf("source: %s\n", source)
+	// pretty.Printf("dest: %s\n", dest)
+	// pretty.Printf("tableName: %s\n", strings.ToUpper(tableName))
+	// pretty.Printf("all: %s\n", all)
+	// pretty.Printf("tbl: %s\n", tbl)
+	// pretty.Printf("lnk: %s\n", lnk)
 	if source == "" {
 		fmt.Println("No source specified")
 		return
@@ -166,10 +166,28 @@ func getTable(sdb *dbc.Database, ddb *dbc.Database, table string) {
 		fmt.Println("Table generation not specified")
 	} else {
 		if tbl {
-			ddb.GenTable(dst, strings.ToUpper(table), scols, pcols)
+			t := ddb.GenTable(dst, strings.ToUpper(table), scols, pcols)
+			if dbg {
+				fmt.Printf(t + "\n")
+			} else {
+				ddb.ExecProcedure(t)
+			}
 		}
 		if lnk {
-			ddb.GenLink(dst, src, strings.ToUpper(table), scols, pcols)
+			l := ddb.GenLink(dst, src, strings.ToUpper(table), scols, pcols)
+			if dbg {
+				fmt.Printf(l + "\n")
+			} else {
+				ddb.ExecProcedure(l)
+			}
+		}
+		if upd {
+			u := ddb.GenUpdate(dst, src, strings.ToUpper(table), scols, pcols)
+			if dbg {
+				fmt.Printf(u + "\n")
+			} else {
+				ddb.ExecProcedure(u)
+			}
 		}
 	}
 }
