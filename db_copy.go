@@ -149,7 +149,11 @@ func getDB(name string, db *dbc.Dbase) (err error) {
 // genURI generate db uri string
 func genURI(db *dbc.Dbase) (uri string) {
 	if db.Driver == "postgres" {
-		uri = "postgres://" + db.Username + ":" + db.Password + "@" + db.Host + "/" + db.Database + "?sslmode=disable"
+		if db.Port == "" {
+			uri = "postgres://" + db.Username + ":" + db.Password + "@" + db.Host + ":5432/" + db.Database + "?sslmode=disable"
+		} else {
+			uri = "postgres://" + db.Username + ":" + db.Password + "@" + db.Host + ":" + db.Port + "/" + db.Database + "?sslmode=disable"
+		}
 	}
 	if db.Driver == "mssql" {
 		uri = "server=" + db.Host + ";user id=" + db.Username + ";password=" + db.Password + ";database=" + db.Database + ";encrypt=disable;connection timeout=7200;keepAlive=30"
