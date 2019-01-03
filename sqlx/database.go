@@ -2,6 +2,8 @@ package dbc
 
 import (
 	"fmt"
+	"log"
+	"strings"
 
 	_ "github.com/denisenkom/go-mssqldb" //mssql driver
 	"github.com/jmoiron/sqlx"
@@ -41,12 +43,10 @@ func OpenDatabase(driver string, dburi string) (*Database, error) {
 	db := Database{}
 	db.DB, err = sqlx.Open(driver, dburi)
 	if err != nil {
-		fmt.Errorf("Open sql (%v): %v", dburi, err)
-		panic(err)
+		log.Printf("Open sql (%v): %v", dburi, err)
 	}
 	if err = db.Ping(); err != nil {
-		fmt.Errorf("Ping sql: %v", err)
-		panic(err)
+		log.Printf("Ping sql: %v", err)
 	}
 	return &db, err
 }
@@ -303,8 +303,8 @@ func (db *Database) GenTable(d Dbase, t string, cols []Columns, pkey []PKey) str
 func (db *Database) GenLink(d Dbase, s Dbase, t string, cols []Columns, pkey []PKey) string {
 	q := ""
 	if d.Driver == "postgres" {
-		q += "DROP FOREIGN TABLE IF EXISTS \"" + d.Schema + "\".\"" + t + "TEMP\" CASCADE;\n"
-		q += "CREATE FOREIGN TABLE IF NOT EXISTS \"" + d.Schema + "\".\"" + t + "TEMP\" (" + "\n"
+		q += "DROP FOREIGN TABLE IF EXISTS \"" + d.Schema + "\".\"" + t + "_FDW\" CASCADE;\n"
+		q += "CREATE FOREIGN TABLE IF NOT EXISTS \"" + d.Schema + "\".\"" + t + "_FDW\" (" + "\n"
 		clen := len(cols)
 		for k, c := range cols {
 			if k == clen-1 {
@@ -318,6 +318,20 @@ func (db *Database) GenLink(d Dbase, s Dbase, t string, cols []Columns, pkey []P
 		q += ", row_estimate_method 'showplan_all'"
 		q += ", match_column_names '0'"
 		q += ")" + ";\n"
+		q += "\nCREATE OR REPLACE VIEW \"" + d.Schema + "\".\"" + t + "TEMP\" AS" + "\n"
+		q += "SELECT\n"
+		for k, c := range cols {
+			l := strings.Index(c.Column, " ")
+			ret := make([]byte, len(c.Column))
+			copy(ret, c.Column)
+			if k == clen-1 {
+				q += string(ret[:l]) + "\n"
+			} else {
+				q += string(ret[:l]) + ",\n"
+			}
+		}
+		q += "FROM \"" + d.Schema + "\".\"" + t + "_FDW\";\n"
+
 	} else if d.Driver == "mssql" {
 		q += "CREATE TABLE " + d.Schema + "." + t + "(" + "\n"
 		q += ")" + "\n"

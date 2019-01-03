@@ -75,13 +75,15 @@ func main() {
 		return
 	}
 	if dest == "" {
-		fmt.Println("No source specified")
+		fmt.Println("No destination specified")
 		return
 	}
 
 	err := getDB(source, &src)
+	// fmt.Println(src)
 	checkErr(err)
 	srcuri := genURI(&src)
+	// fmt.Println(srcuri)
 	sdb, err := dbc.OpenDatabase(src.Driver, srcuri)
 	checkErr(err)
 	defer sdb.Close()
@@ -89,6 +91,7 @@ func main() {
 	err = getDB(dest, &dst)
 	checkErr(err)
 	dsturi := genURI(&dst)
+	// fmt.Println(dsturi)
 	ddb, err := dbc.OpenDatabase(dst.Driver, dsturi)
 	checkErr(err)
 	defer ddb.Close()
@@ -138,6 +141,7 @@ func getDB(name string, db *dbc.Dbase) (err error) {
 	err = json.Unmarshal(content, &conf)
 	checkErr(err)
 	for _, dbase := range conf.DB {
+		// fmt.Println(dbase)
 		if dbase.Name == name {
 			*db = dbase
 			err = nil
@@ -148,6 +152,7 @@ func getDB(name string, db *dbc.Dbase) (err error) {
 
 // genURI generate db uri string
 func genURI(db *dbc.Dbase) (uri string) {
+	// fmt.Println(db.Driver)
 	if db.Driver == "postgres" {
 		if db.Port == "" {
 			uri = "postgres://" + db.Username + ":" + db.Password + "@" + db.Host + ":5432/" + db.Database + "?sslmode=disable"
