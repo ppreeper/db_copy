@@ -3,6 +3,7 @@ package database
 import (
 	"fmt"
 	"os"
+	"strings"
 )
 
 //////////
@@ -38,20 +39,67 @@ func (db *Database) GetTables(d Dbase, schemaName string) ([]Table, error) {
 	return tt, nil
 }
 
-// GetTable gets table definition
-func (db *Database) GetTable(d Dbase, schema, table string) {
-	fmt.Printf("\nTABLE: %s.%s", schema, table)
-	fname := fmt.Sprintf("%s.%s.%s.TABLE.sql", d.Database, schema, table)
-	f, err := os.Create(fname)
+// GetTableSchema gets table definition
+func (db *Database) GetTableSchema(d Dbase, schema, table string, dbg bool) {
+	fmt.Printf("\n-- TABLE: %s.%s", schema, table)
+	scols, err := db.GetColumnDetail(d, Dbase{}, schema, table)
 	checkErr(err)
-	defer f.Close()
+	// fmt.Println(scols)
+	pcols, err := db.GetPKey(d, Dbase{}, schema, table)
+	checkErr(err)
+	// fmt.Println(pcols)
 
-	scols, err := db.GetColumnDetail(d, schema, table)
-	checkErr(err)
-	pcols, err := db.GetPKey(d, schema, table)
-	checkErr(err)
+	sqld, sqlc := db.GenTable(d, schema, table, scols, pcols)
 
-	s := db.GenTable(d, schema, table, scols, pcols)
-	f.Write([]byte(s))
+	if dbg {
+		fmt.Printf("\n%v\n%v\n", sqld, sqlc)
+	} else {
+		t := strings.Replace(table, "/", "_", -1)
+		fname := fmt.Sprintf("%s.%s.%s.TABLE.sql", d.Database, schema, t)
+		f, err := os.Create(fname)
+		checkErr(err)
+		defer f.Close()
+		f.Write([]byte(sqld))
+		f.Write([]byte(sqlc))
+	}
 	return
+}
+
+// GetTable gets table definition conversion
+func GetTable(sdb *Database, src Dbase, ddb *Database, dst Dbase, schemaName, tableName string, tbl, lnk, upd, dbg bool) {
+	scols, err := sdb.GetColumnDetail(dst, src, schemaName, tableName)
+	checkErr(err)
+	pcols, err := sdb.GetPKey(dst, src, schemaName, tableName)
+	checkErr(err)
+	if tbl == false && lnk == false {
+		fmt.Println("Table generation not specified")
+	} else {
+		if tbl {
+			td, tc := ddb.GenTable(dst, schemaName, tableName, scols, pcols)
+			if dbg {
+				fmt.Printf(td + "\n" + tc)
+			} else {
+				ddb.ExecProcedure(td)
+				ddb.ExecProcedure(tc)
+			}
+		}
+		if lnk {
+			ld, lc := ddb.GenLink(dst, src, schemaName, tableName, scols, pcols)
+			if dbg {
+				fmt.Printf(ld + "\n" + lc)
+			} else {
+				ddb.ExecProcedure(ld)
+				ddb.ExecProcedure(lc)
+			}
+		}
+		if upd {
+			ud, uc := ddb.GenUpdate(dst, src, schemaName, tableName, scols, pcols)
+			if dbg {
+				fmt.Printf(ud + "\n" + uc)
+			} else {
+				ddb.ExecProcedure(ud)
+				ddb.ExecProcedure(uc)
+			}
+		}
+	}
 }

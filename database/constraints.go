@@ -10,8 +10,11 @@ type PKey struct {
 //GetPKey func
 func (db *Database) GetPKey(dst Dbase, src Dbase, s, t string) ([]PKey, error) {
 	q := ""
+	if src.Driver == "" {
+		src = dst
+	}
 	if src.Driver == "postgres" {
-		q += fmt.Sprintf("SELECT C.COLUMN_NAME CL")
+		q += fmt.Sprintf("SELECT C.COLUMN_NAME \"CL\"")
 		q += fmt.Sprintf("\nFROM %s.INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE C", src.Database)
 		q += fmt.Sprintf("\nJOIN %s.INFORMATION_SCHEMA.COLUMNS CLM ON", src.Database)
 		q += fmt.Sprintf("\nC.TABLE_CATALOG = CLM.TABLE_CATALOG AND ")
@@ -31,7 +34,7 @@ func (db *Database) GetPKey(dst Dbase, src Dbase, s, t string) ([]PKey, error) {
 		q += fmt.Sprintf("\n)")
 		q += fmt.Sprintf("\nORDER BY CLM.ORDINAL_POSITION")
 	} else if src.Driver == "mssql" {
-		q += fmt.Sprintf("SELECT C.COLUMN_NAME CL")
+		q += fmt.Sprintf("SELECT C.COLUMN_NAME \"CL\"")
 		q += fmt.Sprintf("\nFROM %s.INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE C", src.Database)
 		q += fmt.Sprintf("\nJOIN %s.INFORMATION_SCHEMA.COLUMNS CLM ON", src.Database)
 		q += fmt.Sprintf("\nC.TABLE_CATALOG = CLM.TABLE_CATALOG AND ")
@@ -52,7 +55,7 @@ func (db *Database) GetPKey(dst Dbase, src Dbase, s, t string) ([]PKey, error) {
 		q += fmt.Sprintf("\nORDER BY CLM.ORDINAL_POSITION")
 	}
 	// fmt.Println(q)
-	pkey := []PKey{}
+	var pkey []PKey
 	if err := db.Select(&pkey, q); err != nil {
 		return nil, fmt.Errorf("Select: %v", err)
 	}

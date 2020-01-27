@@ -1,13 +1,12 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
-	dbc "github.com/ppreeper/db_copy/database"
-	"io/ioutil"
 	"os/user"
 	"path"
+
+	dbc "github.com/ppreeper/db_copy/database"
 	// _ "github.com/denisenkom/go-mssqldb"
 	// _ "github.com/fajran/go-monetdb" //Monet
 	// _ "github.com/jmoiron/sqlx"
@@ -34,11 +33,13 @@ func main() {
 
 	var src dbc.Dbase
 	var source string
-	// var dst dbc.Dbase
+	var dst dbc.Dbase
 	var dest string
 
 	var schemaName string
 	var tableName string
+	var viewName string
+	var routineName string
 
 	var scopy bool
 	var tbl bool
@@ -54,6 +55,8 @@ func main() {
 
 	flag.StringVar(&schemaName, "s", "", "specific schema")
 	flag.StringVar(&tableName, "t", "", "specific table")
+	flag.StringVar(&viewName, "v", "", "specific view")
+	flag.StringVar(&routineName, "r", "", "specific routine")
 
 	flag.BoolVar(&scopy, "c", false, "schema copy")
 	flag.BoolVar(&all, "a", false, "all tables")
@@ -69,19 +72,30 @@ func main() {
 		return
 	}
 	// read db config
-	err = getDB(configFile, source, &src)
+	err = dbc.GetDB(configFile, source, &src)
 	checkErr(err)
 	// generate connection uri
-	srcuri := genURI(&src)
-	fmt.Println(srcuri)
+	srcuri := dbc.GenURI(&src)
 	// open database connection
 	sdb, err := dbc.OpenDatabase(src.Driver, srcuri)
 	checkErr(err)
 	defer sdb.Close()
 
 	// generate connection uri
-	// var dsturi string
-	// var ddb *dbc.Database
+	var dsturi string
+	var ddb *dbc.Database
+
+	if all {
+		if tableName != "" || viewName != "" || routineName != "" {
+			fmt.Println("all tables flag and table, view, routine flags cannot be selected at same time")
+			return
+		}
+	} else {
+		if tableName == "" && viewName == "" && routineName == "" {
+			fmt.Println("all tables flag or table, view, routine flags have to be selected")
+			return
+		}
+	}
 
 	var sschemas []dbc.Schema
 	if scopy {
@@ -92,135 +106,83 @@ func main() {
 			sschemas, err = sdb.GetSchemas(src)
 			checkErr(err)
 		}
-		fmt.Println(sschemas)
-		for _, s := range sschemas {
-			stables, err := sdb.GetTables(src, s.Name)
-			checkErr(err)
-			fmt.Println(stables)
-			for _, t := range stables {
-				sdb.GetTable(src, s.Name, t.Name)
+		// fmt.Println(sschemas)
+
+		if all {
+			for _, s := range sschemas {
+				stables, err := sdb.GetTables(src, s.Name)
+				checkErr(err)
+				// fmt.Println(stables)
+				for _, t := range stables {
+					sdb.GetTableSchema(src, s.Name, t.Name, dbg)
+				}
+				sviews, err := sdb.GetViews(src, s.Name)
+				checkErr(err)
+				for _, v := range sviews {
+					sdb.GetView(src, s.Name, v, dbg)
+				}
+				sroutines, err := sdb.GetRoutines(src, s.Name)
+				checkErr(err)
+				for _, r := range sroutines {
+					// fmt.Printf("\nroutine: %s %s", s.Name, r)
+					sdb.GetRoutine(src, s.Name, r, dbg)
+				}
 			}
-			sviews, err := sdb.GetViews(src, s.Name)
-			checkErr(err)
-			for _, v := range sviews {
-				sdb.GetView(src, s.Name, v)
-			}
-			sroutines, err := sdb.GetRoutines(src, s.Name)
-			checkErr(err)
-			for _, r := range sroutines {
-				// fmt.Printf("\nroutine: %s %s", s.Name, r)
-				sdb.GetRoutine(src, s.Name, r)
-			}
-		}
-		// } else {
-		// 	if dest == "" {
-		// 		fmt.Println("No destination specified")
-		// 		return
-		// 	}
-		// 	// read db config
-		// 	err = getDB(configFile, dest, &dst)
-		// 	checkErr(err)
-		// 	// generate connection uri
-		// 	dsturi = genURI(&dst)
-		// 	// open database connection
-		// 	ddb, err = OpenDatabase(dst.Driver, dsturi)
-		// 	checkErr(err)
-		// 	defer ddb.Close()
-
-		// 	if schemaName == "" {
-		// 		fmt.Println("No schema specified")
-		// 		return
-		// 	}
-
-		// 	if all && tableName != "" {
-		// 		fmt.Println("table and all cannot be selected at same time")
-		// 		return
-		// 	}
-
-		// 	if all {
-		// 		stables, err := sdb.GetTables(src, schemaName)
-		// 		checkErr(err)
-		// 		for _, s := range stables {
-		// 			// fmt.Println(s.TableName)
-		// 			getTable(sdb, src, ddb, dst, schemaName, s.TableName, tbl, lnk, upd, dbg)
-		// 		}
-		// 	} else {
-		// 		if tableName == "" {
-		// 			fmt.Println("No table specified")
-		// 		} else {
-		// 			// fmt.Println(tableName)
-		// 			getTable(sdb, src, ddb, dst, schemaName, tableName, tbl, lnk, upd, dbg)
-		// 		}
-		// 	}
-	}
-
-}
-
-func getDB(configFile, name string, db *dbc.Dbase) (err error) {
-	content, err := ioutil.ReadFile(configFile)
-	checkErr(err)
-	var conf dbc.Dbases
-	err = json.Unmarshal(content, &conf)
-	checkErr(err)
-	for _, dbase := range conf.DB {
-		// fmt.Println(dbase)
-		if dbase.Name == name {
-			*db = dbase
-			err = nil
-		}
-	}
-	return err
-}
-
-// genURI generate db uri string
-func genURI(db *dbc.Dbase) (uri string) {
-	// fmt.Println(db.Driver)
-	if db.Driver == "postgres" {
-		if db.Port == "" {
-			uri = "postgres://" + db.Username + ":" + db.Password + "@" + db.Host + ":5432/" + db.Database + "?sslmode=disable"
 		} else {
-			uri = "postgres://" + db.Username + ":" + db.Password + "@" + db.Host + ":" + db.Port + "/" + db.Database + "?sslmode=disable"
+			for _, s := range sschemas {
+				if tableName != "" {
+					// fmt.Println(tableName)
+					sdb.GetTableSchema(src, s.Name, tableName, dbg)
+				}
+				if viewName != "" {
+					// fmt.Println(viewName)
+					v, err := sdb.GetViewSchema(src, s.Name, viewName)
+					checkErr(err)
+					sdb.GetView(src, s.Name, v, dbg)
+				}
+				if routineName != "" {
+					// fmt.Println(routineName)
+					r, err := sdb.GetRoutineSchema(src, s.Name, routineName)
+					checkErr(err)
+					sdb.GetRoutine(src, s.Name, r, dbg)
+				}
+			}
 		}
-	}
-	if db.Driver == "mssql" {
-		uri = "server=" + db.Host + ";user id=" + db.Username + ";password=" + db.Password + ";database=" + db.Database + ";encrypt=disable;connection timeout=7200;keepAlive=30"
-	}
-	return uri
-}
-func getTable(sdb *dbc.Database, src dbc.Dbase, ddb *dbc.Database, dst dbc.Dbase, schemaName, tableName string, tbl, lnk, upd, dbg bool) {
-	scols, err := sdb.GetColumnDetail(dst, src, schemaName, tableName)
-	checkErr(err)
-	pcols, err := sdb.GetPKey(dst, src, schemaName, tableName)
-	checkErr(err)
-	if tbl == false && lnk == false {
-		fmt.Println("Table generation not specified")
 	} else {
-		if tbl {
-			td, tc := ddb.GenTable(dst, schemaName, tableName, scols, pcols)
-			if dbg {
-				fmt.Printf(td + "\n" + tc)
-			} else {
-				ddb.ExecProcedure(td)
-				ddb.ExecProcedure(tc)
-			}
+		if dest == "" {
+			fmt.Println("No destination specified")
+			return
 		}
-		if lnk {
-			ld, lc := ddb.GenLink(dst, src, schemaName, tableName, scols, pcols)
-			if dbg {
-				fmt.Printf(ld + "\n" + lc)
-			} else {
-				ddb.ExecProcedure(ld)
-				ddb.ExecProcedure(lc)
-			}
+		// read db config
+		err = dbc.GetDB(configFile, dest, &dst)
+		checkErr(err)
+		// generate connection uri
+		dsturi = dbc.GenURI(&dst)
+		// open database connection
+		ddb, err = dbc.OpenDatabase(dst.Driver, dsturi)
+		checkErr(err)
+		defer ddb.Close()
+
+		if schemaName == "" {
+			fmt.Println("No schema specified")
+			return
 		}
-		if upd {
-			ud, uc := ddb.GenUpdate(dst, src, schemaName, tableName, scols, pcols)
-			if dbg {
-				fmt.Printf(ud + "\n" + uc)
+
+		if all {
+			stables, err := sdb.GetTables(src, schemaName)
+			checkErr(err)
+			for _, s := range stables {
+				// fmt.Println(s.TableName)
+				dbc.GetTable(sdb, src, ddb, dst, schemaName, s.Name, tbl, lnk, upd, dbg)
+			}
+		} else {
+			if tableName == "" {
+				fmt.Println("No table specified")
 			} else {
-				ddb.ExecProcedure(ud)
-				ddb.ExecProcedure(uc)
+				// fmt.Println(tableName)
+				dbc.GetTable(sdb, src, ddb, dst, schemaName, tableName, tbl, lnk, upd, dbg)
 			}
 		}
 	}
+	fmt.Printf("\n")
 }

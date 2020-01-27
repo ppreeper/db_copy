@@ -5,7 +5,7 @@
       "host": "postgresql.example.com",
       "port": "",
       "database": "pdb",
-      "schema": "schema",
+      "schema": ["schema"],
       "username": "postgres",
       "password": "password",
       "poolsize": "90"
@@ -16,7 +16,7 @@
         "host": "sqlserver.example.com",
         "port": "",
         "database": "mdb",
-        "schema": "schema",
+        "schema": ["schema"],
         "username": "sa",
         "password": "password",
         "poolsize": "90"

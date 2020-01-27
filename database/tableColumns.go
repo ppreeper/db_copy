@@ -12,6 +12,9 @@ type Column struct {
 //GetColumnDetail func
 func (db *Database) GetColumnDetail(dst Dbase, src Dbase, s, t string) ([]Column, error) {
 	q := ""
+	if src.Driver == "" {
+		src = dst
+	}
 	if src.Driver == "mssql" {
 		if dst.Driver == "mssql" {
 			q += fmt.Sprintf("-- mssql to mssql\n")
@@ -37,7 +40,7 @@ func (db *Database) GetColumnDetail(dst Dbase, src Dbase, s, t string) ([]Column
 			q += fmt.Sprintf("CASE WHEN IS_NULLABLE = 'NO' THEN 'NOT NULL' ELSE '' END + ' ' +\n")
 			q += fmt.Sprintf("CASE WHEN C.COLUMN_DEFAULT IS NULL THEN ''\n")
 			q += fmt.Sprintf("ELSE ' DEFAULT ' + SUBSTRING(C.COLUMN_DEFAULT,CHARINDEX(' as ', C.COLUMN_DEFAULT)+4,LEN(C.COLUMN_DEFAULT)-CHARINDEX(' as ', C.COLUMN_DEFAULT)) END\n")
-			q += fmt.Sprintf("CL, C.COLUMN_NAME CN, UPPER(DATA_TYPE) DT\n")
+			q += fmt.Sprintf("\"CL\", C.COLUMN_NAME \"CN\", UPPER(DATA_TYPE) \"DT\"\n")
 			q += fmt.Sprintf("FROM %s.INFORMATION_SCHEMA.COLUMNS C\n", src.Database)
 			q += fmt.Sprintf("WHERE C.TABLE_CATALOG = '%s'\n", src.Database)
 			q += fmt.Sprintf("AND C.TABLE_SCHEMA = '%s'\n", s)
@@ -67,7 +70,7 @@ func (db *Database) GetColumnDetail(dst Dbase, src Dbase, s, t string) ([]Column
 			q += fmt.Sprintf("CASE WHEN IS_NULLABLE = 'NO' THEN 'NOT NULL' ELSE '' END + ' ' +\n")
 			q += fmt.Sprintf("CASE WHEN C.COLUMN_DEFAULT IS NULL THEN ''\n")
 			q += fmt.Sprintf("ELSE ' DEFAULT ' + substring(C.COLUMN_DEFAULT,CASE WHEN CHARINDEX(' as ', C.COLUMN_DEFAULT) = 0 then 0 else CHARINDEX(' as ', C.COLUMN_DEFAULT)+4 end,LEN(C.COLUMN_DEFAULT)+1-CASE WHEN CHARINDEX(' as ', C.COLUMN_DEFAULT) = 0 then 0 else CHARINDEX(' as ', C.COLUMN_DEFAULT) end) END\n")
-			q += fmt.Sprintf("CL, C.COLUMN_NAME CN, UPPER(DATA_TYPE) DT\n")
+			q += fmt.Sprintf("\"CL\", C.COLUMN_NAME \"CN\", UPPER(DATA_TYPE) \"DT\"\n")
 			q += fmt.Sprintf("FROM %s.INFORMATION_SCHEMA.COLUMNS C\n", src.Database)
 			q += fmt.Sprintf("WHERE C.TABLE_CATALOG = '%s'\n", src.Database)
 			q += fmt.Sprintf("AND C.TABLE_SCHEMA = '%s'\n", s)
@@ -100,7 +103,7 @@ func (db *Database) GetColumnDetail(dst Dbase, src Dbase, s, t string) ([]Column
 			q += fmt.Sprintf("CASE WHEN IS_NULLABLE = 'NO' THEN 'NOT NULL' ELSE '' END || ' ' ||\n")
 			q += fmt.Sprintf("CASE WHEN C.COLUMN_DEFAULT IS NULL THEN ''\n")
 			q += fmt.Sprintf("ELSE ' DEFAULT ' || case when POSITION('::' in C.COLUMN_DEFAULT) > 0 then SUBSTRING(C.COLUMN_DEFAULT,1,POSITION('::' in C.COLUMN_DEFAULT)-1) else C.COLUMN_DEFAULT END end\n")
-			q += fmt.Sprintf("CL, C.COLUMN_NAME CN, UPPER(DATA_TYPE) DT\n")
+			q += fmt.Sprintf("\"CL\", C.COLUMN_NAME \"CN\", UPPER(DATA_TYPE) \"DT\"\n")
 			q += fmt.Sprintf("FROM %s.INFORMATION_SCHEMA.COLUMNS C\n", src.Database)
 			q += fmt.Sprintf("WHERE C.TABLE_CATALOG = '%s'\n", src.Database)
 			q += fmt.Sprintf("AND C.TABLE_SCHEMA = '%s'\n", s)
@@ -129,13 +132,14 @@ func (db *Database) GetColumnDetail(dst Dbase, src Dbase, s, t string) ([]Column
 			q += fmt.Sprintf("CASE WHEN IS_NULLABLE = 'NO' THEN 'NOT NULL' ELSE '' END || ' ' ||\n")
 			q += fmt.Sprintf("CASE WHEN C.COLUMN_DEFAULT IS NULL THEN ''\n")
 			q += fmt.Sprintf("ELSE ' DEFAULT ' || C.COLUMN_DEFAULT END\n")
-			q += fmt.Sprintf("CL, C.COLUMN_NAME CN, UPPER(DATA_TYPE) DT\n")
+			q += fmt.Sprintf("\"CL\", C.COLUMN_NAME \"CN\", UPPER(DATA_TYPE) \"DT\"\n")
 			q += fmt.Sprintf("FROM %s.INFORMATION_SCHEMA.COLUMNS C\n", src.Database)
 			q += fmt.Sprintf("WHERE C.TABLE_CATALOG = '%s'\n", src.Database)
 			q += fmt.Sprintf("AND C.TABLE_SCHEMA = '%s'\n", s)
 			q += fmt.Sprintf("AND C.TABLE_NAME = '%s'\n", t)
 		}
 	}
+
 	// fmt.Println(q)
 	columnnames := []Column{}
 	if err := db.Select(&columnnames, q); err != nil {
