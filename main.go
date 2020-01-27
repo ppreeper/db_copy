@@ -5,9 +5,9 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"strings"
-
-	dbc "github.com/ppreeper/db_copy/sqlx"
+	"os/user"
+	"path"
+	// dbc "github.com/ppreeper/db_copy/sqlx"
 	// _ "github.com/denisenkom/go-mssqldb"
 	// _ "github.com/fajran/go-monetdb" //Monet
 	// _ "github.com/jmoiron/sqlx"
@@ -19,43 +19,36 @@ import (
 	// _ "bitbucket.org/phiggins/db2cli" //DB2
 )
 
-// Dbase for loading from json
-// type Dbase struct {
-// 	Name     string `json:"name"`
-// 	Driver   string `json:"driver"`
-// 	Host     string `json:"host"`
-// 	Port     string `json:"port"`
-// 	Database string `json:"database"`
-// 	Schema   string `json:"schema"`
-// 	Username string `json:"username"`
-// 	Password string `json:"password"`
-// }
-
 // Dbases load
 type Dbases struct {
-	DB []dbc.Dbase `json:"dbases"`
+	DB []Dbase `json:"dbases"`
 }
 
-var src dbc.Dbase
-var dst dbc.Dbase
-
-var tbl bool
-var lnk bool
-var dbg bool
-var upd bool
-var all bool
-var tableName string
-var configFile string
-
-var source string
-var dest string
-
 func main() {
+	usr, err := user.Current()
+	checkErr(err)
+
+	var src Dbase
+	var dst Dbase
+
+	var tbl bool
+	var lnk bool
+	var dbg bool
+	var upd bool
+	var all bool
+	var schemaName string
+	var tableName string
+	var configFile string
+
+	var source string
+	var dest string
+
 	// Flags
 	flag.StringVar(&source, "source", "", "source database")
 	flag.StringVar(&dest, "dest", "", "destination database")
-	flag.StringVar(&configFile, "config.file", "config.json", "config file location")
+	flag.StringVar(&configFile, "config.file", path.Join(usr.HomeDir, ".local/share/database", "config.json"), "config file location")
 
+	flag.StringVar(&schemaName, "s", "", "specific schema")
 	flag.StringVar(&tableName, "t", "", "specific table")
 	flag.BoolVar(&all, "a", false, "all tables")
 	flag.BoolVar(&tbl, "g", false, "gen table sql")
@@ -64,12 +57,6 @@ func main() {
 	flag.BoolVar(&dbg, "n", false, "list tables no exec")
 
 	flag.Parse()
-	// pretty.Printf("source: %s\n", source)
-	// pretty.Printf("dest: %s\n", dest)
-	// pretty.Printf("tableName: %s\n", strings.ToUpper(tableName))
-	// pretty.Printf("all: %s\n", all)
-	// pretty.Printf("tbl: %s\n", tbl)
-	// pretty.Printf("lnk: %s\n", lnk)
 	if source == "" {
 		fmt.Println("No source specified")
 		return
@@ -78,53 +65,44 @@ func main() {
 		fmt.Println("No destination specified")
 		return
 	}
+	if schemaName == "" {
+		fmt.Println("No schema specified")
+		return
+	}
+	if all && tableName != "" {
+		fmt.Println("table and all cannot be selected at same time")
+		return
+	}
 
-	err := getDB(source, &src)
-	// fmt.Println(src)
+	err = getDB(configFile, source, &src)
 	checkErr(err)
 	srcuri := genURI(&src)
-	// fmt.Println(srcuri)
-	sdb, err := dbc.OpenDatabase(src.Driver, srcuri)
+	sdb, err := OpenDatabase(src.Driver, srcuri)
 	checkErr(err)
 	defer sdb.Close()
 
-	err = getDB(dest, &dst)
+	err = getDB(configFile, dest, &dst)
 	checkErr(err)
 	dsturi := genURI(&dst)
-	// fmt.Println(dsturi)
-	ddb, err := dbc.OpenDatabase(dst.Driver, dsturi)
+	ddb, err := OpenDatabase(dst.Driver, dsturi)
 	checkErr(err)
 	defer ddb.Close()
 
 	if all {
-		if tableName != "" {
-			fmt.Println("table and all cannot be selected at same time")
-		} else {
-			stables, err := sdb.GetTables(src)
-			checkErr(err)
-			for _, s := range stables {
-				getTable(sdb, ddb, s.TableName)
-			}
+		stables, err := sdb.GetTables(src, schemaName)
+		checkErr(err)
+		for _, s := range stables {
+			// fmt.Println(s.TableName)
+			getTable(sdb, src, ddb, dst, schemaName, s.TableName, tbl, lnk, upd, dbg)
 		}
 	} else {
-		if tableName != "" {
-			getTable(sdb, ddb, tableName)
-		} else {
+		if tableName == "" {
 			fmt.Println("No table specified")
+		} else {
+			// fmt.Println(tableName)
+			getTable(sdb, src, ddb, dst, schemaName, tableName, tbl, lnk, upd, dbg)
 		}
 	}
-
-	// stables, err := sdb.GetTables(src)
-	// checkErr(err)
-	// pretty.Println(stables)
-
-	// dtables, err := ddb.GetTables(dst)
-	// checkErr(err)
-	// pretty.Println(dtables)
-
-	// for _, s := range stables {
-	// 	pretty.Println(s.TableName)
-	// }
 }
 
 func checkErr(err error) {
@@ -134,7 +112,7 @@ func checkErr(err error) {
 	}
 }
 
-func getDB(name string, db *dbc.Dbase) (err error) {
+func getDB(configFile, name string, db *Dbase) (err error) {
 	content, err := ioutil.ReadFile(configFile)
 	checkErr(err)
 	var conf Dbases
@@ -151,7 +129,7 @@ func getDB(name string, db *dbc.Dbase) (err error) {
 }
 
 // genURI generate db uri string
-func genURI(db *dbc.Dbase) (uri string) {
+func genURI(db *Dbase) (uri string) {
 	// fmt.Println(db.Driver)
 	if db.Driver == "postgres" {
 		if db.Port == "" {
@@ -165,37 +143,39 @@ func genURI(db *dbc.Dbase) (uri string) {
 	}
 	return uri
 }
-
-func getTable(sdb *dbc.Database, ddb *dbc.Database, table string) {
-	scols, err := sdb.GetColumnDetail(dst, src, strings.ToUpper(table))
+func getTable(sdb *Database, src Dbase, ddb *Database, dst Dbase, schemaName, tableName string, tbl, lnk, upd, dbg bool) {
+	scols, err := sdb.GetColumnDetail(dst, src, schemaName, tableName)
 	checkErr(err)
-	pcols, err := sdb.GetPKey(dst, src, strings.ToUpper(table))
+	pcols, err := sdb.GetPKey(dst, src, schemaName, tableName)
 	checkErr(err)
 	if tbl == false && lnk == false {
 		fmt.Println("Table generation not specified")
 	} else {
 		if tbl {
-			t := ddb.GenTable(dst, strings.ToUpper(table), scols, pcols)
+			td, tc := ddb.GenTable(dst, schemaName, tableName, scols, pcols)
 			if dbg {
-				fmt.Printf(t + "\n")
+				fmt.Printf(td + "\n" + tc)
 			} else {
-				ddb.ExecProcedure(t)
+				ddb.ExecProcedure(td)
+				ddb.ExecProcedure(tc)
 			}
 		}
 		if lnk {
-			l := ddb.GenLink(dst, src, strings.ToUpper(table), scols, pcols)
+			ld, lc := ddb.GenLink(dst, src, schemaName, tableName, scols, pcols)
 			if dbg {
-				fmt.Printf(l + "\n")
+				fmt.Printf(ld + "\n" + lc)
 			} else {
-				ddb.ExecProcedure(l)
+				ddb.ExecProcedure(ld)
+				ddb.ExecProcedure(lc)
 			}
 		}
 		if upd {
-			u := ddb.GenUpdate(dst, src, strings.ToUpper(table), scols, pcols)
+			ud, uc := ddb.GenUpdate(dst, src, schemaName, tableName, scols, pcols)
 			if dbg {
-				fmt.Printf(u + "\n")
+				fmt.Printf(ud + "\n" + uc)
 			} else {
-				ddb.ExecProcedure(u)
+				ddb.ExecProcedure(ud)
+				ddb.ExecProcedure(uc)
 			}
 		}
 	}

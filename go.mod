@@ -8,3 +8,5 @@ require (
 	github.com/mattn/go-sqlite3 v1.11.0 // indirect
 	google.golang.org/appengine v1.6.1 // indirect
 )
+
+go 1.13
