@@ -15,8 +15,8 @@ type Table struct {
 	Name string `db:"TABLE_NAME"`
 }
 
-// GetTables returns table list
-func (db *Database) GetTables(d Dbase, schemaName string) ([]Table, error) {
+// GetTableList returns table list
+func (db *Database) GetTableList(d Dbase, schemaName string) ([]Table, error) {
 	q := ""
 	if d.Driver == "postgres" {
 		q += "select TABLE_NAME \"TABLE_NAME\" "
