@@ -73,7 +73,7 @@ func (db *Database) GenLink(dst Dbase, src Dbase, s, t string, cols []Column, pk
 	}
 	clen := len(cols)
 	if dst.Driver == "postgres" {
-		sqld += fmt.Sprintf("DROP FOREIGN TABLE IF EXISTS \"%s\".\"%s%s\" CASCADE;\n", s, t, tmp)
+		sqld += fmt.Sprintf("\nDROP FOREIGN TABLE IF EXISTS \"%s\".\"%s%s\" CASCADE;\n", s, t, tmp)
 		sqlc += fmt.Sprintf("CREATE FOREIGN TABLE IF NOT EXISTS \"%s\".\"%s%s\" (\n", s, t, tmp)
 		for k, c := range cols {
 			if k == clen-1 {
@@ -88,7 +88,7 @@ func (db *Database) GenLink(dst Dbase, src Dbase, s, t string, cols []Column, pk
 		sqlc += fmt.Sprintf("row_estimate_method 'showplan_all', ")
 		sqlc += fmt.Sprintf("match_column_names '0');")
 	} else if dst.Driver == "mssql" {
-		sqld += fmt.Sprintf("DROP VIEW \"%s\".\"%s%s\";\n", s, t, tmp)
+		sqld += fmt.Sprintf("\nDROP VIEW \"%s\".\"%s%s\";\n", s, t, tmp)
 		sqlc += fmt.Sprintf("CREATE VIEW \"%s\".\"%s%s\" AS\n", s, t, tmp)
 		for k, c := range cols {
 			collation := ""
@@ -135,12 +135,13 @@ func tableUpdProcStart(destDriver, schema, tableName string) (sqld, sqlc string)
 		tmp = "temp"
 	}
 	if destDriver == "postgres" {
-		sqlc += fmt.Sprintf("CREATE OR REPLACE PROCEDURE \"%s\".\"upd_%s\"()\nLANGUAGE plpgsql\nAS $procedure$\nBEGIN\n", schema, tableName)
+		sqld += fmt.Sprintf("\nDROP PROCEDURE IF EXISTS \"%s\".\"upd_%s\"();", schema, tableName)
+		sqlc += fmt.Sprintf("\nCREATE OR REPLACE PROCEDURE \"%s\".\"upd_%s\"()\nLANGUAGE plpgsql\nAS $procedure$\nBEGIN\n", schema, tableName)
 		sqlc += fmt.Sprintf("DROP TABLE IF EXISTS \"temp_%s\";\n", tableName)
 		sqlc += fmt.Sprintf("CREATE TEMPORARY TABLE \"temp_%s\" AS SELECT * FROM \"%s\".\"%s%s\";\n", tableName, schema, tableName, tmp)
 	} else if destDriver == "mssql" {
-		sqld += fmt.Sprintf("DROP PROCEDURE \"%s\".\"upd_%s\";", schema, tableName)
-		sqlc += fmt.Sprintf("CREATE PROCEDURE \"%s\".\"upd_%s\" AS\nBEGIN\n", schema, tableName)
+		sqld += fmt.Sprintf("\nDROP PROCEDURE \"%s\".\"upd_%s\";", schema, tableName)
+		sqlc += fmt.Sprintf("\nCREATE PROCEDURE \"%s\".\"upd_%s\" AS\nBEGIN\n", schema, tableName)
 		sqlc += fmt.Sprintf("IF OBJECT_ID('tempdb..#%s','U') IS NOT NULL DROP TABLE tempdb.#%s\n", tableName, tableName)
 		sqlc += fmt.Sprintf("SELECT * INTO #%s FROM \"%s\".\"%s%s\"\n", tableName, schema, tableName, tmp)
 	}
