@@ -44,10 +44,8 @@ func (db *Database) GetTableSchema(d Dbase, schema, table string, dbg bool) {
 	fmt.Printf("\n-- TABLE: %s.%s", schema, table)
 	scols, err := db.GetColumnDetail(d, Dbase{}, schema, table)
 	checkErr(err)
-	// fmt.Println(scols)
 	pcols, err := db.GetPKey(d, Dbase{}, schema, table)
 	checkErr(err)
-	// fmt.Println(pcols)
 
 	sqld, sqlc := db.GenTable(d, schema, table, scols, pcols)
 
@@ -71,35 +69,31 @@ func GetTable(sdb *Database, src Dbase, ddb *Database, dst Dbase, schemaName, ta
 	checkErr(err)
 	pcols, err := sdb.GetPKey(dst, src, schemaName, tableName)
 	checkErr(err)
-	if tbl == false && lnk == false {
-		fmt.Println("Table generation not specified")
-	} else {
-		if tbl {
-			td, tc := ddb.GenTable(dst, schemaName, tableName, scols, pcols)
-			if dbg {
-				fmt.Printf(td + "\n" + tc)
-			} else {
-				ddb.ExecProcedure(td)
-				ddb.ExecProcedure(tc)
-			}
+	if tbl {
+		td, tc := ddb.GenTable(dst, schemaName, tableName, scols, pcols)
+		if dbg {
+			fmt.Printf(td + "\n" + tc)
+		} else {
+			ddb.ExecProcedure(td)
+			ddb.ExecProcedure(tc)
 		}
-		if lnk {
-			ld, lc := ddb.GenLink(dst, src, schemaName, tableName, scols, pcols)
-			if dbg {
-				fmt.Printf(ld + "\n" + lc)
-			} else {
-				ddb.ExecProcedure(ld)
-				ddb.ExecProcedure(lc)
-			}
+	}
+	if lnk {
+		ld, lc := ddb.GenLink(dst, src, schemaName, tableName, scols, pcols)
+		if dbg {
+			fmt.Printf(ld + "\n" + lc)
+		} else {
+			ddb.ExecProcedure(ld)
+			ddb.ExecProcedure(lc)
 		}
-		if upd {
-			ud, uc := ddb.GenUpdate(dst, src, schemaName, tableName, scols, pcols)
-			if dbg {
-				fmt.Printf(ud + "\n" + uc)
-			} else {
-				ddb.ExecProcedure(ud)
-				ddb.ExecProcedure(uc)
-			}
+	}
+	if upd {
+		ud, uc := ddb.GenUpdate(dst, src, schemaName, tableName, scols, pcols)
+		if dbg {
+			fmt.Printf(ud + "\n" + uc)
+		} else {
+			ddb.ExecProcedure(ud)
+			ddb.ExecProcedure(uc)
 		}
 	}
 }
