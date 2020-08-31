@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/user"
 	"path"
+	"sync"
 
 	dbc "github.com/ppreeper/db_copy/database"
 	// _ "github.com/denisenkom/go-mssqldb"
@@ -110,12 +111,20 @@ func main() {
 
 		if all {
 			for _, s := range sschemas {
-				stables, err := sdb.GetTables(src, s.Name)
+				stables, err := sdb.GetTableList(src, s.Name)
 				checkErr(err)
-				// fmt.Println(stables)
+				sem := make(chan int, 8)
+				var wg sync.WaitGroup
+				wg.Add(len(stables))
 				for _, t := range stables {
-					sdb.GetTableSchema(src, s.Name, t.Name, dbg)
+					go func(sem chan int, wg *sync.WaitGroup, t string) {
+						defer wg.Done()
+						sem <- 1
+						sdb.GetTableSchema(src, s.Name, t, dbg)
+						<-sem
+					}(sem, &wg, t.Name)
 				}
+				wg.Wait()
 				sviews, err := sdb.GetViews(src, s.Name)
 				checkErr(err)
 				for _, v := range sviews {
@@ -124,24 +133,20 @@ func main() {
 				sroutines, err := sdb.GetRoutines(src, s.Name)
 				checkErr(err)
 				for _, r := range sroutines {
-					// fmt.Printf("\nroutine: %s %s", s.Name, r)
 					sdb.GetRoutine(src, s.Name, r, dbg)
 				}
 			}
 		} else {
 			for _, s := range sschemas {
 				if tableName != "" {
-					// fmt.Println(tableName)
 					sdb.GetTableSchema(src, s.Name, tableName, dbg)
 				}
 				if viewName != "" {
-					// fmt.Println(viewName)
 					v, err := sdb.GetViewSchema(src, s.Name, viewName)
 					checkErr(err)
 					sdb.GetView(src, s.Name, v, dbg)
 				}
 				if routineName != "" {
-					// fmt.Println(routineName)
 					r, err := sdb.GetRoutineSchema(src, s.Name, routineName)
 					checkErr(err)
 					sdb.GetRoutine(src, s.Name, r, dbg)
@@ -169,17 +174,15 @@ func main() {
 		}
 
 		if all {
-			stables, err := sdb.GetTables(src, schemaName)
+			stables, err := sdb.GetTableList(src, schemaName)
 			checkErr(err)
 			for _, s := range stables {
-				// fmt.Println(s.TableName)
 				dbc.GetTable(sdb, src, ddb, dst, schemaName, s.Name, tbl, lnk, upd, dbg)
 			}
 		} else {
 			if tableName == "" {
 				fmt.Println("No table specified")
 			} else {
-				// fmt.Println(tableName)
 				dbc.GetTable(sdb, src, ddb, dst, schemaName, tableName, tbl, lnk, upd, dbg)
 			}
 		}
