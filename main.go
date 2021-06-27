@@ -149,12 +149,20 @@ func main() {
 	//////////
 	// check all or table,view,routine
 	//////////
-	if config.All && config.TableName != "" || config.ViewName != "" || config.RoutineName != "" || config.IndexName != "" {
-		fmt.Println("all tables flag and table, view, routine, index, flags cannot be selected at same time")
+	if config.All &&
+		((config.Table || config.TableName != "") ||
+			(config.View || config.ViewName != "") ||
+			(config.Routine || config.RoutineName != "") ||
+			(config.Index || config.IndexName != "")) {
+		fmt.Println("All True all tables flag and table, view, routine, index, flags cannot be selected at same time")
 		return
-
 	}
-	if !config.All && config.TableName == "" && config.ViewName == "" && config.RoutineName == "" && config.IndexName == "" {
+
+	if !config.All &&
+		(!config.Table && config.TableName == "") &&
+		(!config.View && config.ViewName == "") &&
+		(!config.Routine && config.RoutineName == "") &&
+		(!config.Index && config.IndexName == "") {
 		fmt.Println("all tables flag or table, view, routine, index, flags have to be selected")
 		return
 	}
@@ -236,10 +244,20 @@ func main() {
 			getIndexes(&config, &data)
 		}
 		if config.All && !config.Table && !config.View && !config.Routine && !config.Index {
-			fmt.Println("all")
+			config.Table = true
+			fmt.Println("table")
 			getTables(&config, &data)
+
+			config.View = true
+			fmt.Println("view")
 			getViews(&config, &data)
+
+			config.Routine = true
+			fmt.Println("routine")
 			getRoutines(&config, &data)
+
+			config.Index = true
+			fmt.Println("index")
 			getIndexes(&config, &data)
 		}
 	}
@@ -272,7 +290,6 @@ func getTables(config *Config, data *dbc.Conn) {
 }
 
 func getViews(config *Config, data *dbc.Conn) {
-	fmt.Println(config, data)
 	var err error
 	var sViews []dbc.ViewList
 
@@ -370,15 +387,16 @@ func backupTasker(config *Config, data *dbc.Conn, objects []string) {
 					fmt.Println(csql)
 				} else {
 					if config.Dest == "file:" {
-						fn := fmt.Sprintf("%s__%s.sql", data.DSchema, object)
+						fn := fmt.Sprintf("%s__t__%s.sql", data.DSchema, object)
 						osql := fmt.Sprintf("%s\n%s", dsql, csql)
 						err := ioutil.WriteFile(fn, []byte(osql), 0666)
 						checkErr(err)
+					} else {
+						_, err := data.Dest.Exec(dsql)
+						checkErr(err)
+						_, err = data.Dest.Exec(csql)
+						checkErr(err)
 					}
-					_, err := data.Dest.Exec(dsql)
-					checkErr(err)
-					_, err = data.Dest.Exec(csql)
-					checkErr(err)
 				}
 			}
 
@@ -393,11 +411,12 @@ func backupTasker(config *Config, data *dbc.Conn, objects []string) {
 						osql := fmt.Sprintf("%s\n%s", dsql, csql)
 						err := ioutil.WriteFile(fn, []byte(osql), 0666)
 						checkErr(err)
+					} else {
+						_, err := data.Dest.Exec(dsql)
+						checkErr(err)
+						_, err = data.Dest.Exec(csql)
+						checkErr(err)
 					}
-					_, err := data.Dest.Exec(dsql)
-					checkErr(err)
-					_, err = data.Dest.Exec(csql)
-					checkErr(err)
 				}
 			}
 
@@ -413,11 +432,12 @@ func backupTasker(config *Config, data *dbc.Conn, objects []string) {
 						osql := fmt.Sprintf("%s\n%s", dsql, csql)
 						err := ioutil.WriteFile(fn, []byte(osql), 0666)
 						checkErr(err)
+					} else {
+						_, err := data.Dest.Exec(dsql)
+						checkErr(err)
+						_, err = data.Dest.Exec(csql)
+						checkErr(err)
 					}
-					_, err := data.Dest.Exec(dsql)
-					checkErr(err)
-					_, err = data.Dest.Exec(csql)
-					checkErr(err)
 				}
 			}
 
@@ -434,12 +454,13 @@ func backupTasker(config *Config, data *dbc.Conn, objects []string) {
 					fmt.Println(csql)
 				} else {
 					if config.Dest == "file:" {
-						fn := fmt.Sprintf("%s__%s.sql", data.DSchema, object)
+						fn := fmt.Sprintf("%s__v__%s.sql", data.DSchema, object)
 						err := ioutil.WriteFile(fn, []byte(csql), 0666)
 						checkErr(err)
+					} else {
+						_, err := data.Dest.Exec(csql)
+						checkErr(err)
 					}
-					_, err := data.Dest.Exec(csql)
-					checkErr(err)
 				}
 			}
 
@@ -462,12 +483,13 @@ func backupTasker(config *Config, data *dbc.Conn, objects []string) {
 					fmt.Println(csql)
 				} else {
 					if config.Dest == "file:" {
-						fn := fmt.Sprintf("%s__%s.sql", data.DSchema, object)
+						fn := fmt.Sprintf("%s__r__%s.sql", data.DSchema, object)
 						err := ioutil.WriteFile(fn, []byte(csql), 0666)
 						checkErr(err)
+					} else {
+						_, err := data.Dest.Exec(csql)
+						checkErr(err)
 					}
-					_, err := data.Dest.Exec(csql)
-					checkErr(err)
 				}
 			}
 
@@ -490,16 +512,17 @@ func backupTasker(config *Config, data *dbc.Conn, objects []string) {
 					fmt.Println(csql)
 				} else {
 					if config.Dest == "file:" {
-						fn := fmt.Sprintf("%s__%s.sql", data.DSchema, object)
+						fn := fmt.Sprintf("%s__i__%s.sql", data.DSchema, object)
 						err := ioutil.WriteFile(fn, []byte(dsql), 0666)
 						checkErr(err)
 						err = ioutil.WriteFile(fn, []byte(csql), 0666)
 						checkErr(err)
+					} else {
+						_, err := data.Dest.Exec(dsql)
+						checkErr(err)
+						_, err = data.Dest.Exec(csql)
+						checkErr(err)
 					}
-					_, err := data.Dest.Exec(dsql)
-					checkErr(err)
-					_, err = data.Dest.Exec(csql)
-					checkErr(err)
 				}
 			}
 
