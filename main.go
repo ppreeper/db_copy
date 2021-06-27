@@ -138,8 +138,10 @@ func main() {
 	config.Filter = regexp.MustCompilePOSIX(config.FilterDef)
 
 	// Config File
+	userConfigDir, err := os.UserConfigDir()
+	checkErr(err)
 	var c Conf
-	c.getConf("config.yml")
+	c.getConf(userConfigDir + "/db_copy/config.yml")
 
 	src := c.getDB(config.Source)
 	dst := c.getDB(config.Dest)

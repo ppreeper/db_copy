@@ -15,6 +15,10 @@
 
 # Ignore config file
 config.json
+config.yml
 
 # compiled file
 db_copy
+
+# logfile
+dbcopy.log
