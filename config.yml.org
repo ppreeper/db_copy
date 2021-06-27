@@ -1,0 +1,24 @@
+dbases:
+  - name: pdb_schema
+    driver: postgres
+    host: postgresql.example.com
+    port: 5432
+    database: pdb
+    schema: 
+      - schema
+    username: postgres
+    password: password
+    poolsize: 90
+  - name: mdb_schema
+    driver: mssql
+    host: sqlserver.example.com
+    port: 1433
+    database: mdb
+    schema: 
+      - schema
+    username: sa
+    password: password
+    poolsize: 90
+    
+  
+

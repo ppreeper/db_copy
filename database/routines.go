@@ -10,8 +10,8 @@ import (
 // Routines
 //////////
 
-// DBRoutine list of routines (procedures, functions)
-type DBRoutine struct {
+// Routine list of routines (procedures, functions)
+type Routine struct {
 	Name             string `db:"ROUTINE_NAME"`
 	Type             string `db:"ROUTINE_TYPE"`
 	Definition       string `db:"ROUTINE_DEFINITION"`
@@ -19,44 +19,31 @@ type DBRoutine struct {
 	ExternalLanguage string `db:"EXTERNAL_LANGUAGE"`
 }
 
-// TODO get postgres routines, currently sql server definitions work
+type RoutineList struct {
+	Name string `db:"ROUTINE_NAME"`
+}
 
 // GetRoutines returns list of routines and definitions
-func (db *Database) GetRoutines(d Dbase, schema string) ([]DBRoutine, error) {
+func (db *Database) GetRoutines(schema string) ([]RoutineList, error) {
 	q := ""
-	if d.Driver == "postgres" {
+	if db.Driver == "postgres" || db.Driver == "mssql" {
 		q += "SELECT ROUTINE_NAME \"ROUTINE_NAME\"" + "\n"
-		q += ",ROUTINE_TYPE \"ROUTINE_TYPE\"" + "\n"
-		q += ",ROUTINE_DEFINITION \"ROUTINE_DEFINITION\"" + "\n"
-		q += ",CASE WHEN DATA_TYPE IS NULL THEN '' ELSE DATA_TYPE END \"DATA_TYPE\"" + "\n"
-		q += ",CASE WHEN EXTERNAL_LANGUAGE IS NULL THEN '' ELSE EXTERNAL_LANGUAGE END \"EXTERNAL_LANGUAGE\"" + "\n"
-		q += "FROM INFORMATION_SCHEMA.ROUTINES" + "\n"
-		q += "WHERE ROUTINE_SCHEMA = '" + schema + "'" + "\n"
-		q += "AND ROUTINE_DEFINITION IS NOT NULL" + "\n"
-		q += "ORDER BY ROUTINE_NAME" + "\n"
-	} else if d.Driver == "mssql" {
-		q += "SELECT ROUTINE_NAME \"ROUTINE_NAME\"" + "\n"
-		q += ",ROUTINE_TYPE \"ROUTINE_TYPE\"" + "\n"
-		q += ",ROUTINE_DEFINITION \"ROUTINE_DEFINITION\"" + "\n"
-		q += ",CASE WHEN DATA_TYPE IS NULL THEN '' ELSE DATA_TYPE END \"DATA_TYPE\"" + "\n"
-		q += ",CASE WHEN EXTERNAL_LANGUAGE IS NULL THEN '' ELSE EXTERNAL_LANGUAGE END \"EXTERNAL_LANGUAGE\"" + "\n"
 		q += "FROM INFORMATION_SCHEMA.ROUTINES" + "\n"
 		q += "WHERE ROUTINE_SCHEMA = '" + schema + "'" + "\n"
 		q += "AND ROUTINE_DEFINITION IS NOT NULL" + "\n"
 		q += "ORDER BY ROUTINE_NAME" + "\n"
 	}
-	// fmt.Println(q)
-	rr := []DBRoutine{}
+	rr := []RoutineList{}
 	if err := db.Select(&rr, q); err != nil {
-		return nil, fmt.Errorf("Select: %v", err)
+		return nil, fmt.Errorf("select: %w", err)
 	}
 	return rr, nil
 }
 
 // GetRoutineSchema returns routine and definition
-func (db *Database) GetRoutineSchema(d Dbase, schema, routine string) (DBRoutine, error) {
+func (db *Database) GetRoutineSchema(schema, routine string) (Routine, error) {
 	q := ""
-	if d.Driver == "postgres" {
+	if db.Driver == "postgres" || db.Driver == "mssql" {
 		q += "SELECT ROUTINE_NAME \"ROUTINE_NAME\"" + "\n"
 		q += ",ROUTINE_TYPE \"ROUTINE_TYPE\"" + "\n"
 		q += ",ROUTINE_DEFINITION \"ROUTINE_DEFINITION\"" + "\n"
@@ -67,28 +54,16 @@ func (db *Database) GetRoutineSchema(d Dbase, schema, routine string) (DBRoutine
 		q += "AND ROUTINE_NAME = '" + routine + "'" + "\n"
 		q += "AND ROUTINE_DEFINITION IS NOT NULL" + "\n"
 		q += "ORDER BY ROUTINE_NAME" + "\n"
-	} else if d.Driver == "mssql" {
-		q += "select ROUTINE_NAME \"ROUTINE_NAME\"" + "\n"
-		q += ",ROUTINE_TYPE \"ROUTINE_TYPE\"" + "\n"
-		q += ",ROUTINE_DEFINITION \"ROUTINE_DEFINITION\"" + "\n"
-		q += ",CASE WHEN DATA_TYPE IS NULL THEN '' ELSE DATA_TYPE END \"DATA_TYPE\"" + "\n"
-		q += ",CASE WHEN EXTERNAL_LANGUAGE IS NULL THEN '' ELSE EXTERNAL_LANGUAGE END \"EXTERNAL_LANGUAGE\"" + "\n"
-		q += "FROM INFORMATION_SCHEMA.ROUTINES" + "\n"
-		q += "WHERE ROUTINE_SCHEMA = '" + schema + "'" + "\n"
-		q += "AND ROUTINE_NAME = '" + routine + "'" + "\n"
-		q += "AND ROUTINE_DEFINITION IS NOT NULL" + "\n"
-		q += "ORDER BY ROUTINE_NAME" + "\n"
 	}
-	// fmt.Println(q)
-	rr := DBRoutine{}
+	rr := Routine{}
 	if err := db.Get(&rr, q); err != nil {
-		return DBRoutine{}, fmt.Errorf("Select: %v", err)
+		return Routine{}, fmt.Errorf("select: %w", err)
 	}
 	return rr, nil
 }
 
 // GetRoutine gets procedure definition
-func (db *Database) GetRoutine(d Dbase, schema string, r DBRoutine, dbg bool) {
+func (db *Database) GetRoutine(d Database, schema string, r Routine, dbg bool) {
 	fmt.Printf("\n-- ROUTINE: %s.%s", schema, r.Name)
 	q := ""
 	if d.Driver == "postgres" {
@@ -118,9 +93,8 @@ func (db *Database) GetRoutine(d Dbase, schema string, r DBRoutine, dbg bool) {
 		t := strings.Replace(r.Name, "/", "_", -1)
 		fname := fmt.Sprintf("%s.%s.%s.%s.sql", d.Database, schema, t, r.Type)
 		f, err := os.Create(fname)
-		checkErr(err)
+		db.checkErr(err)
 		defer f.Close()
 		f.Write([]byte(q))
 	}
-	return
 }

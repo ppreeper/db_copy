@@ -12,11 +12,11 @@ type Schema struct {
 }
 
 // GetSchemas returns schema list
-func (db *Database) GetSchemas(d Dbase) ([]Schema, error) {
+func (db *Database) GetSchemas() ([]Schema, error) {
 	q := ""
-	if d.Driver == "postgres" {
-		q = "select schema_name \"SCHEMA_NAME\" from sapdb.information_schema.schemata where schema_name not in ('pg_catalog','information_schema') order by schema_name"
-	} else if d.Driver == "mssql" {
+	if db.Driver == "postgres" {
+		q = "select schema_name \"SCHEMA_NAME\" from information_schema.schemata where schema_name not in ('pg_catalog','information_schema') order by schema_name"
+	} else if db.Driver == "mssql" {
 		q = "select \"SCHEMA_NAME\" from INFORMATION_SCHEMA.SCHEMATA where SCHEMA_NAME not in ("
 		q += "'INFORMATION_SCHEMA',"
 		q += "'db_accessadmin',"
@@ -33,7 +33,7 @@ func (db *Database) GetSchemas(d Dbase) ([]Schema, error) {
 	}
 	ss := []Schema{}
 	if err := db.Select(&ss, q); err != nil {
-		return nil, fmt.Errorf("Select: %v", err)
+		return nil, fmt.Errorf("select: %v", err)
 	}
 	return ss, nil
 }

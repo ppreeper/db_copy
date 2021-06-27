@@ -1,14 +1,12 @@
 package database
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"log"
 
 	_ "github.com/denisenkom/go-mssqldb" //mssql driver
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq" //postgresql driver
+	"go.uber.org/zap"
 	// _ "github.com/denisenkom/go-mssqldb"
 	// _ "github.com/fajran/go-monetdb" //Monet
 	// _ "github.com/mattn/go-sqlite3" //sqlite3
@@ -18,48 +16,57 @@ import (
 	// _ "bitbucket.org/phiggins/db2cli" //DB2
 )
 
-func checkErr(err error) {
+func (db *Database) checkErr(err error) {
 	if err != nil {
-		fmt.Print("Error:", err)
-		panic(err)
+		db.Log.Errorw(err.Error())
 	}
+}
+
+// func (db *Database) fatalErr(err error) {
+// 	if err != nil {
+// 		db.Log.Fatalw(err.Error())
+// 	}
+// }
+
+// Conn struct
+type Conn struct {
+	Source  *Database
+	Dest    *Database
+	SSchema string
+	DSchema string
 }
 
 // Database struct contains sql pointer
 type Database struct {
+	Name     string   `json:"name,omitempty"`
+	Driver   string   `json:"driver,omitempty"`
+	Host     string   `json:"host,omitempty"`
+	Port     string   `json:"port,omitempty"`
+	Database string   `json:"database,omitempty"`
+	Schema   []string `json:"schema,omitempty"`
+	Username string   `json:"username,omitempty"`
+	Password string   `json:"password,omitempty"`
+	PoolSize string   `json:"poolsize,omitempty"`
+	Drive    string   `json:"drive,omitempty"`
+	SubDir   string   `json:"subdir,omitempty"`
+	URI      string
+	Log      *zap.SugaredLogger
 	*sqlx.DB
 }
 
-// Dbases array of Dbase
-type Dbases struct {
-	DB []Dbase `json:"dbases"`
-}
-
-// Dbase for loading from json
-type Dbase struct {
-	Name     string   `json:"name"`
-	Driver   string   `json:"driver"`
-	Host     string   `json:"host"`
-	Port     string   `json:"port"`
-	Database string   `json:"database"`
-	Schema   []string `json:"schema"`
-	Username string   `json:"username"`
-	Password string   `json:"password"`
-	PoolSize string   `json:"poolsize"`
-}
-
 // OpenDatabase open database
-func OpenDatabase(driver string, dburi string) (*Database, error) {
+func OpenDatabase(db Database) (*Database, error) {
 	// fmt.Println(driver, dburi)
 	var err error
-	db := Database{}
-	db.DB, err = sqlx.Open(driver, dburi)
+	db.GetURI()
+	db.DB, err = sqlx.Open(db.Driver, db.URI)
 	if err != nil {
-		log.Printf("Open sql (%v): %v", dburi, err)
+		db.Log.Info("Open sql (%v): %v", db.URI, err)
 	}
 	if err = db.Ping(); err != nil {
-		log.Printf("Ping sql: %v", err)
+		db.Log.Info("Ping sql: %v", err)
 	}
+	db.Log.Info("", "db", db)
 	return &db, err
 }
 
@@ -72,58 +79,45 @@ func (db *Database) ExecProcedure(q string) {
 	}
 }
 
-// GetDB loads db config from json
-func GetDB(configFile, name string, db *Dbase) (err error) {
-	content, err := ioutil.ReadFile(configFile)
-	checkErr(err)
-	var conf Dbases
-	err = json.Unmarshal(content, &conf)
-	checkErr(err)
-	for _, dbase := range conf.DB {
-		// fmt.Println(dbase)
-		if dbase.Name == name {
-			*db = dbase
-			err = nil
-		}
-	}
-	return err
-}
-
 // GenURI generate db uri string
-func GenURI(db *Dbase) (uri string) {
+func (db *Database) GetURI() {
 	// fmt.Println(db.Driver)
 	if db.Driver == "postgres" {
 		if db.Port == "" {
-			uri = "postgres://" + db.Username + ":" + db.Password + "@" + db.Host + ":5432/" + db.Database + "?sslmode=disable"
+			db.URI = "postgres://" + db.Username + ":" + db.Password + "@" + db.Host + ":5432/" + db.Database + "?sslmode=disable"
 		} else {
-			uri = "postgres://" + db.Username + ":" + db.Password + "@" + db.Host + ":" + db.Port + "/" + db.Database + "?sslmode=disable"
+			db.URI = "postgres://" + db.Username + ":" + db.Password + "@" + db.Host + ":" + db.Port + "/" + db.Database + "?sslmode=disable"
 		}
 	}
 	if db.Driver == "mssql" {
-		uri = "server=" + db.Host + ";user id=" + db.Username + ";password=" + db.Password + ";database=" + db.Database + ";encrypt=disable;connection timeout=7200;keepAlive=30"
+		db.URI = "server=" + db.Host + ";user id=" + db.Username + ";password=" + db.Password + ";database=" + db.Database + ";encrypt=disable;connection timeout=7200;keepAlive=30"
 	}
-	return uri
+}
+
+func GenSubDir(db *Database) (subdir string) {
+	subdir = fmt.Sprintf("%s:\\%s", db.Drive, db.SubDir)
+	return
 }
 
 // Utilities
 
 // function to reverse the given integer array
-func reverse(numbers []int) []int {
+// func reverse(numbers []int) []int {
 
-	var length = len(numbers) // getting length of an array
+// 	var length = len(numbers) // getting length of an array
 
-	for i := 0; i < length/2; i++ {
-		temp := numbers[i]
-		numbers[i] = numbers[length-i-1]
-		numbers[length-i-1] = temp
-	}
+// 	for i := 0; i < length/2; i++ {
+// 		temp := numbers[i]
+// 		numbers[i] = numbers[length-i-1]
+// 		numbers[length-i-1] = temp
+// 	}
 
-	return numbers
-}
+// 	return numbers
+// }
 
-func removeColumn(slice []Column, s int) []Column {
-	return append(slice[:s], slice[s+1:]...)
-}
+// func removeColumn(slice []Column, s int) []Column {
+// 	return append(slice[:s], slice[s+1:]...)
+// }
 
 func trimCols(cols []Column, pkey []PKey) []Column {
 	var clist []int
