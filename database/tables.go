@@ -14,13 +14,13 @@ type Table struct {
 }
 
 // GetTableList returns table list
-func (db *Database) GetTables(schemaName string) ([]Table, error) {
+func (db *Database) GetTables(schemaName, ttype string) ([]Table, error) {
 	q := ""
 	if db.Driver == "postgres" || db.Driver == "mssql" {
 		q += "select TABLE_NAME \"TABLE_NAME\" "
 		q += "from INFORMATION_SCHEMA.TABLES "
 		q += "where TABLE_SCHEMA = '" + schemaName + "' "
-		q += "and TABLE_TYPE = 'BASE TABLE' "
+		q += "and TABLE_TYPE = '" + ttype + "' "
 		q += "order by TABLE_NAME"
 	}
 	tt := []Table{}
@@ -31,12 +31,13 @@ func (db *Database) GetTables(schemaName string) ([]Table, error) {
 }
 
 // GetTableSchema gets table definition
-func (db *Database) GetTableSchema(conn *Conn, table string) (sqld, sqlc string) {
+func (db *Database) GetTableSchema(conn *Conn, table string) (sqld, sqlc, sqldi, sqlci string) {
 	scols, err := db.GetColumnDetail(conn, table, false)
 	db.checkErr(err)
 	pcols, err := db.GetPKey(conn, table)
 	db.checkErr(err)
 	sqld, sqlc = db.GenTable(conn, table, scols, pcols)
+	sqldi, sqlci = db.GenTableIndexSQL(conn, table)
 	return
 }
 

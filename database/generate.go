@@ -63,61 +63,20 @@ func (db *Database) GenTable(conn *Conn, table string, cols []Column, pkey []PKe
 	return
 }
 
-//GenCopyTable generate table craeation
-func (db *Database) GenCopyTable(src Database, dst Database, sschema, dschema, t string, cols []Column, pkey []PKey) (sqld, sqlc string) {
-	// fmt.Println(dst.Driver, s, t, pkey)
-	clen := len(cols)
-	plen := len(pkey)
-	if dst.Driver == "postgres" {
-		sqld += fmt.Sprintf("\nDROP TABLE IF EXISTS \"%s\".\"%s\" CASCADE;\n", dschema, t)
-		sqlc += fmt.Sprintf("CREATE TABLE IF NOT EXISTS \"%s\".\"%s\" (\n", dschema, t)
-		for k, c := range cols {
-			if k == clen-1 {
-				if plen > 0 {
-					sqlc += c.Column + ",\n"
-					sqlc += "PRIMARY KEY ("
-					for v, p := range pkey {
-						if v == plen-1 {
-							sqlc += "\"" + p.PKey + "\""
-						} else {
-							sqlc += "\"" + p.PKey + "\","
-						}
-					}
-					sqlc += ")" + "\n"
-				} else {
-					sqlc += c.Column + "\n"
-				}
-			} else {
-				sqlc += c.Column + ",\n"
-			}
+func (db *Database) GenTableIndexSQL(conn *Conn, tableName string) (sqld, sqlc string) {
+	idxs, err := conn.Source.GetTableIndexSchema(conn.SSchema, tableName)
+	db.checkErr(err)
+	for _, i := range idxs {
+		idx := "\"" + strings.Replace(strings.Replace(i.Table+`_`+i.Columns+"_idx", "\"", "", -1), ",", "_", -1) + "\""
+		exists := ""
+		notexists := ""
+		if conn.Dest.Driver == "postgres" {
+			exists = "IF EXISTS "
+			notexists = "IF NOT EXISTS "
 		}
-		sqlc += ");\n"
-	} else if dst.Driver == "mssql" {
-		sqld += fmt.Sprintf("\nDROP TABLE \"%s\".\"%s\";\n", dschema, t)
-		sqlc += fmt.Sprintf("CREATE TABLE \"%s\".\"%s\" (\n", dschema, t)
-		for k, c := range cols {
-			//fmt.Println(c)
-			if k == clen-1 {
-				if plen > 0 {
-					sqlc += fmt.Sprintf("%s,\n", c.Column)
-					sqlc += "PRIMARY KEY ("
-					for v, p := range pkey {
-						if v == plen-1 {
-							sqlc += fmt.Sprintf("\"%s\"", p.PKey)
-						} else {
-							sqlc += fmt.Sprintf("\"%s\",", p.PKey)
-						}
-					}
-					sqlc += ")\n"
-				} else {
-					// q += c.Column + "\n"
-					sqlc += fmt.Sprintf("%s\n", c.Column)
-				}
-			} else {
-				sqlc += fmt.Sprintf("%s,\n", c.Column)
-			}
-		}
-		sqlc += ")\n"
+
+		sqld += `DROP INDEX ` + exists + `"` + i.Schema + `".` + idx + `;` + "\n"
+		sqlc += `CREATE INDEX ` + notexists + `` + idx + ` ON "` + i.Schema + `"."` + i.Table + `" (` + i.Columns + `);` + "\n"
 	}
 	return
 }
@@ -214,29 +173,6 @@ func tableUpdProcEnd(destDriver, tableName string) (sqlc string) {
 	}
 	return sqlc
 }
-
-// func tableIndexSQL(destDriver, tableName string, pkey []PKey) (sqlc string) {
-// 	if destDriver == "postgres" {
-// 		sqlc += fmt.Sprintf("CREATE INDEX \"tp_%s\" ON \"temp_%s\" (", tableName, tableName)
-// 	} else if destDriver == "mssql" {
-// 		sqlc += fmt.Sprintf("CREATE INDEX \"tp_%s\" ON #%s (", tableName, tableName)
-// 	}
-// 	plen := len(pkey)
-// 	for k, p := range pkey {
-// 		sqlc += fmt.Sprintf("\"%s\"", p.PKey)
-// 		if k == plen-1 {
-// 			sqlc += ""
-// 		} else {
-// 			sqlc += ","
-// 		}
-// 	}
-// 	if destDriver == "postgres" {
-// 		sqlc += ");\n"
-// 	} else if destDriver == "mssql" {
-// 		sqlc += ")\n"
-// 	}
-// 	return sqlc
-// }
 
 func tableDeleteSQL(destDriver, schema, tableName string, pkey []PKey, allColumns []Column) (sqlc string) {
 	ttemp := "temp"

@@ -149,21 +149,18 @@ func main() {
 	//////////
 	// check all or table,view,routine
 	//////////
-	if config.All &&
-		((config.Table || config.TableName != "") ||
-			(config.View || config.ViewName != "") ||
-			(config.Routine || config.RoutineName != "") ||
-			(config.Index || config.IndexName != "")) {
-		fmt.Println("All True all tables flag and table, view, routine, index, flags cannot be selected at same time")
-		return
+
+	if config.All {
+		config.Table = true
+		config.View = true
+		config.Routine = true
 	}
 
-	if !config.All &&
-		(!config.Table && config.TableName == "") &&
+	if (!config.Table && config.TableName == "") &&
 		(!config.View && config.ViewName == "") &&
 		(!config.Routine && config.RoutineName == "") &&
 		(!config.Index && config.IndexName == "") {
-		fmt.Println("all tables flag or table, view, routine, index, flags have to be selected")
+		fmt.Println("table, view, routine, index, flags have to be selected")
 		return
 	}
 
@@ -228,36 +225,23 @@ func main() {
 		}
 
 		if config.Table || config.TableName != "" {
-			fmt.Println("table")
+			fmt.Println("table:", s.Name)
 			getTables(&config, &data)
 		}
-		if config.View {
-			fmt.Println("view")
+		if config.Table && config.Link {
+			fmt.Println("foreign table:", s.Name)
+			getForeignTables(&config, &data)
+		}
+		if config.View || config.ViewName != "" {
+			fmt.Println("view:", s.Name)
 			getViews(&config, &data)
 		}
-		if config.Routine {
-			fmt.Println("routine")
+		if config.Routine || config.RoutineName != "" {
+			fmt.Println("routine:", s.Name)
 			getRoutines(&config, &data)
 		}
-		if config.Index {
-			fmt.Println("index")
-			getIndexes(&config, &data)
-		}
-		if config.All && !config.Table && !config.View && !config.Routine && !config.Index {
-			config.Table = true
-			fmt.Println("table")
-			getTables(&config, &data)
-
-			config.View = true
-			fmt.Println("view")
-			getViews(&config, &data)
-
-			config.Routine = true
-			fmt.Println("routine")
-			getRoutines(&config, &data)
-
-			config.Index = true
-			fmt.Println("index")
+		if config.Index || config.IndexName != "" {
+			fmt.Println("index:", s.Name)
 			getIndexes(&config, &data)
 		}
 	}
@@ -270,7 +254,7 @@ func getTables(config *Config, data *dbc.Conn) {
 	if config.TableName != "" {
 		sTables = []dbc.Table{{Name: config.TableName}}
 	} else {
-		sTables, err = data.Source.GetTables(data.SSchema)
+		sTables, err = data.Source.GetTables(data.SSchema, "BASE TABLE")
 		checkErr(err)
 	}
 	// fmt.Println("tables: ", len(sTables))
@@ -283,10 +267,67 @@ func getTables(config *Config, data *dbc.Conn) {
 	}
 	// fmt.Println("sTables: ", len(sTables), "tables: ", len(tbls))
 
+	cTable := config.Table
+	cLink := config.Link
+	cView := config.View
+	cRoutine := config.Routine
+
+	config.Table = true
+	config.View = false
+	config.Link = false
+	config.Routine = false
+
 	if len(tbls) > 0 {
 		// fmt.Println("jobCount:", config.JobCount)
 		backupTasker(config, data, tbls)
 	}
+
+	config.Table = cTable
+	config.Link = cLink
+	config.View = cView
+	config.Routine = cRoutine
+
+}
+
+func getForeignTables(config *Config, data *dbc.Conn) {
+	var err error
+	var sTables []dbc.Table
+
+	if config.TableName != "" {
+		sTables = []dbc.Table{{Name: config.TableName}}
+	} else {
+		sTables, err = data.Source.GetTables(data.SSchema, "FOREIGN")
+		checkErr(err)
+	}
+	// fmt.Println("tables: ", len(sTables))
+
+	var tbls []string
+	for _, t := range sTables {
+		if config.FilterDef == "" || !config.Filter.MatchString(t.Name) {
+			tbls = append(tbls, t.Name)
+		}
+	}
+	// fmt.Println("sTables: ", len(sTables), "tables: ", len(tbls))
+
+	cTable := config.Table
+	cLink := config.Link
+	cView := config.View
+	cRoutine := config.Routine
+
+	config.Table = false
+	config.View = false
+	config.Link = true
+	config.Routine = false
+
+	if len(tbls) > 0 {
+		// fmt.Println("jobCount:", config.JobCount)
+		backupTasker(config, data, tbls)
+	}
+
+	config.Table = cTable
+	config.Link = cLink
+	config.View = cView
+	config.Routine = cRoutine
 }
 
 func getViews(config *Config, data *dbc.Conn) {
@@ -309,10 +350,25 @@ func getViews(config *Config, data *dbc.Conn) {
 	}
 	// fmt.Println("sViews: ", len(sViews), "views: ", len(views))
 
+	cTable := config.Table
+	cLink := config.Link
+	cView := config.View
+	cRoutine := config.Routine
+
+	config.Table = false
+	config.View = true
+	config.Link = false
+	config.Routine = false
+
 	if len(views) > 0 {
 		// fmt.Println("jobCount:", config.JobCount)
 		backupTasker(config, data, views)
 	}
+
+	config.Table = cTable
+	config.Link = cLink
+	config.View = cView
+	config.Routine = cRoutine
 
 }
 
@@ -336,10 +392,25 @@ func getRoutines(config *Config, data *dbc.Conn) {
 	}
 	// fmt.Println("sRoutines: ", len(sRoutines), "tables: ", len(routines))
 
+	cTable := config.Table
+	cLink := config.Link
+	cView := config.View
+	cRoutine := config.Routine
+
+	config.Table = false
+	config.View = false
+	config.Link = false
+	config.Routine = true
+
 	if len(routines) > 0 {
 		// fmt.Println("jobCount:", config.JobCount)
 		backupTasker(config, data, routines)
 	}
+
+	config.Table = cTable
+	config.Link = cLink
+	config.View = cView
+	config.Routine = cRoutine
 }
 
 func getIndexes(config *Config, data *dbc.Conn) {
@@ -369,7 +440,7 @@ func getIndexes(config *Config, data *dbc.Conn) {
 }
 
 func backupTasker(config *Config, data *dbc.Conn, objects []string) {
-	fmt.Println("backupTasker")
+	// fmt.Println("backupTasker")
 	sem := make(chan int, config.JobCount)
 	var wg sync.WaitGroup
 	wg.Add(len(objects))
@@ -381,13 +452,40 @@ func backupTasker(config *Config, data *dbc.Conn, objects []string) {
 			sem <- 1
 
 			if config.Table {
-				dsql, csql := data.Source.GetTableSchema(data, object)
+				dsql, csql, disql, cisql := data.Source.GetTableSchema(data, object)
+				if config.Debug {
+					fmt.Println(dsql)
+					fmt.Println(disql)
+					fmt.Println(csql)
+					fmt.Println(cisql)
+				} else {
+					if config.Dest == "file:" {
+						fn := fmt.Sprintf("%s__t__%s.sql", data.DSchema, object)
+						osql := fmt.Sprintf("%s\n%s\n%s\n%s", dsql, disql, csql, cisql)
+						err := ioutil.WriteFile(fn, []byte(osql), 0666)
+						checkErr(err)
+					} else {
+						_, err := data.Dest.Exec(dsql)
+						checkErr(err)
+						_, err = data.Dest.Exec(disql)
+						checkErr(err)
+						_, err = data.Dest.Exec(csql)
+						checkErr(err)
+						_, err = data.Dest.Exec(cisql)
+						checkErr(err)
+					}
+				}
+
+			}
+
+			if config.Link && data.Dest.Driver == "postgres" {
+				dsql, csql := data.Source.GetForeignTableSchema(data, object)
 				if config.Debug {
 					fmt.Println(dsql)
 					fmt.Println(csql)
 				} else {
 					if config.Dest == "file:" {
-						fn := fmt.Sprintf("%s__t__%s.sql", data.DSchema, object)
+						fn := fmt.Sprintf("%s__ft__%s.sql", data.DSchema, object)
 						osql := fmt.Sprintf("%s\n%s", dsql, csql)
 						err := ioutil.WriteFile(fn, []byte(osql), 0666)
 						checkErr(err)
@@ -398,6 +496,7 @@ func backupTasker(config *Config, data *dbc.Conn, objects []string) {
 						checkErr(err)
 					}
 				}
+
 			}
 
 			if config.Update {
@@ -408,27 +507,6 @@ func backupTasker(config *Config, data *dbc.Conn, objects []string) {
 				} else {
 					if config.Dest == "file:" {
 						fn := fmt.Sprintf("%s__upd_%s.sql", data.DSchema, object)
-						osql := fmt.Sprintf("%s\n%s", dsql, csql)
-						err := ioutil.WriteFile(fn, []byte(osql), 0666)
-						checkErr(err)
-					} else {
-						_, err := data.Dest.Exec(dsql)
-						checkErr(err)
-						_, err = data.Dest.Exec(csql)
-						checkErr(err)
-					}
-				}
-			}
-
-			if config.Link && data.Dest.Driver == "postgres" {
-				dsql, csql := data.Source.GetForeignTableSchema(data, object)
-
-				if config.Debug {
-					fmt.Println(dsql)
-					fmt.Println(csql)
-				} else {
-					if config.Dest == "file:" {
-						fn := fmt.Sprintf("%s__%sTEMP.sql", data.DSchema, object)
 						osql := fmt.Sprintf("%s\n%s", dsql, csql)
 						err := ioutil.WriteFile(fn, []byte(osql), 0666)
 						checkErr(err)
