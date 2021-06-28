@@ -7,5 +7,4 @@ install:
 	go install -a ./...
 
 all:
-	GOOS=linux go build -ldflags="-s -w" -o dbcopy
-	upx -9 dbcopy
+	GOOS=linux go install -ldflags="-s -w" -a ./...
