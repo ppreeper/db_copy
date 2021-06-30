@@ -6,7 +6,7 @@ require (
 	github.com/jmoiron/sqlx v0.0.0-20180406164412-2aeb6a910c2b
 	github.com/lib/pq v0.0.0-20180523175426-90697d60dd84
 	github.com/mattn/go-sqlite3 v1.11.0 // indirect
-	github.com/schollz/progressbar/v3 v3.8.0
+	github.com/schollz/progressbar/v3 v3.8.2
 	go.uber.org/zap v1.16.0
 	golang.org/x/tools v0.1.1-0.20210222172741-77e031214674 // indirect
 	google.golang.org/appengine v1.6.1 // indirect
