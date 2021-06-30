@@ -7,11 +7,10 @@ require (
 	github.com/lib/pq v0.0.0-20180523175426-90697d60dd84
 	github.com/mattn/go-sqlite3 v1.11.0 // indirect
 	github.com/schollz/progressbar/v3 v3.8.2
-	go.uber.org/zap v1.16.0
+	go.uber.org/zap v1.18.1
 	golang.org/x/tools v0.1.1-0.20210222172741-77e031214674 // indirect
 	google.golang.org/appengine v1.6.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0
-	honnef.co/go/tools v0.1.1 // indirect
 )
 
 go 1.16
