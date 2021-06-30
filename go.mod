@@ -10,7 +10,7 @@ require (
 	go.uber.org/zap v1.16.0
 	golang.org/x/tools v0.1.1-0.20210222172741-77e031214674 // indirect
 	google.golang.org/appengine v1.6.1 // indirect
-	gopkg.in/yaml.v2 v2.2.4
+	gopkg.in/yaml.v2 v2.4.0
 	honnef.co/go/tools v0.1.1 // indirect
 )
 
