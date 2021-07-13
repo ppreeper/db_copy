@@ -228,10 +228,6 @@ func main() {
 			fmt.Println("table:", s.Name)
 			getTables(&config, &data)
 		}
-		if config.Table && config.Link {
-			fmt.Println("foreign table:", s.Name)
-			getForeignTables(&config, &data)
-		}
 		if config.View || config.ViewName != "" {
 			fmt.Println("view:", s.Name)
 			getViews(&config, &data)
@@ -272,10 +268,10 @@ func getTables(config *Config, data *dbc.Conn) {
 	cView := config.View
 	cRoutine := config.Routine
 
-	config.Table = true
+	// config.Table = true
 	config.View = false
-	config.Link = false
-	config.Routine = false
+	// config.Link = false
+	// config.Routine = false
 
 	if len(tbls) > 0 {
 		// fmt.Println("jobCount:", config.JobCount)
@@ -287,47 +283,6 @@ func getTables(config *Config, data *dbc.Conn) {
 	config.View = cView
 	config.Routine = cRoutine
 
-}
-
-func getForeignTables(config *Config, data *dbc.Conn) {
-	var err error
-	var sTables []dbc.Table
-
-	if config.TableName != "" {
-		sTables = []dbc.Table{{Name: config.TableName}}
-	} else {
-		sTables, err = data.Source.GetTables(data.SSchema, "FOREIGN")
-		checkErr(err)
-	}
-	// fmt.Println("tables: ", len(sTables))
-
-	var tbls []string
-	for _, t := range sTables {
-		if config.FilterDef == "" || !config.Filter.MatchString(t.Name) {
-			tbls = append(tbls, t.Name)
-		}
-	}
-	// fmt.Println("sTables: ", len(sTables), "tables: ", len(tbls))
-
-	cTable := config.Table
-	cLink := config.Link
-	cView := config.View
-	cRoutine := config.Routine
-
-	config.Table = false
-	config.View = false
-	config.Link = true
-	config.Routine = false
-
-	if len(tbls) > 0 {
-		// fmt.Println("jobCount:", config.JobCount)
-		backupTasker(config, data, tbls)
-	}
-
-	config.Table = cTable
-	config.Link = cLink
-	config.View = cView
-	config.Routine = cRoutine
 }
 
 func getViews(config *Config, data *dbc.Conn) {
